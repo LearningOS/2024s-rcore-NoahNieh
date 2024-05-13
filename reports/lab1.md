@@ -2,14 +2,7 @@
 
 ## 总结
 
-```
-[kernel] Loading app_0
-[kernel] PageFault in application, kernel killed it.
-[kernel] Loading app_1
-[kernel] IllegalInstruction in application, kernel killed it.
-[kernel] Loading app_2
-[kernel] IllegalInstruction in application, kernel killed it.
-```
+在`TaskControlBlock`添加相应的字段存储信息需要统计的信息，并向模块外提供获取的接口。在`get_task_info`的系统调用中调用该接口并将数据放到`TaskInfo`中返回。
 
 ## 简答题
 
@@ -65,7 +58,6 @@ Breakpoint 2, 0x00000000804003ac in ?? ()
 1. 在完成本次实验的过程（含此前学习的过程）中，我曾分别与以下各位就（与本次实验相关的）以下方面做过交流，还在代码中对应的位置以注释形式记录了具体的交流对象及内容：
 
 2. 此外，我也参考了以下资料 ，还在代码中对应的位置以注释形式记录了具体的参考来源及内容：
-
 
 3. 我独立完成了本次实验除以上方面之外的所有工作，包括代码与文档。我清楚地知道，从以上方面获得的信息在一定程度上降低了实验难度，可能会影响起评分。
 
