@@ -133,6 +133,13 @@ impl TaskManager {
         inner.tasks[cur].change_program_brk(size)
     }
 
+    /// 通过虚拟地址获得这个任务的内存数据，并以可变引用的形式返回
+    pub fn get_current_mut_by_va<T>(&self, va:usize) -> &'static mut T {
+        let inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].get_mut_by_va(va.into())
+    }
+
     /// Switch current `Running` task to the task we have found,
     /// or there is no `Ready` task and we can exit with all applications completed
     fn run_next_task(&self) {
@@ -201,4 +208,9 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// 向模块外部提供的接口
+pub fn get_mut_by_va<T>(va: usize) -> &'static mut T{
+    TASK_MANAGER.get_current_mut_by_va(va)
 }

@@ -1,8 +1,9 @@
 //! Types related to task management
+
 use super::TaskContext;
 use crate::config::TRAP_CONTEXT_BASE;
 use crate::mm::{
-    kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
+    kernel_stack_position, MapPermission, MemorySet, PhysAddr, PhysPageNum, VirtAddr,  KERNEL_SPACE
 };
 use crate::trap::{trap_handler, TrapContext};
 
@@ -95,6 +96,14 @@ impl TaskControlBlock {
         } else {
             None
         }
+    }
+
+    /// 通过当前任务的内存虚拟地址获得对应的物理内存，并通过指定结构返回
+    pub fn get_mut_by_va<T>(&self, va: VirtAddr) -> &'static mut T{
+        let offset = va.page_offset();
+        let ppn = self.memory_set.translate(va.floor()).unwrap().ppn();
+        let pv:PhysAddr = (PhysAddr::from(ppn).0 | offset).into();
+        pv.get_mut()
     }
 }
 

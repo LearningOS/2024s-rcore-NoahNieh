@@ -2,8 +2,10 @@
 use crate::{
     config::MAX_SYSCALL_NUM,
     task::{
-        change_program_brk, exit_current_and_run_next, suspend_current_and_run_next, TaskStatus,
+        change_program_brk, exit_current_and_run_next, get_mut_by_va, suspend_current_and_run_next,
+        TaskStatus,
     },
+    timer::get_time_us,
 };
 
 #[repr(C)]
@@ -43,7 +45,12 @@ pub fn sys_yield() -> isize {
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
-    -1
+    let us = get_time_us();
+    // 拿到对应的物理内存，直接写
+    let tv: &mut TimeVal = get_mut_by_va(_ts as usize);
+    tv.sec = us / 1_000_000;
+    tv.usec = us % 1_000_000;
+    0
 }
 
 /// YOUR JOB: Finish sys_task_info to pass testcases
