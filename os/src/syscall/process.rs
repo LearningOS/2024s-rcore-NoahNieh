@@ -1,10 +1,12 @@
 //! Process management syscalls
+
+use core::mem::size_of;
+
 use crate::{
     config::MAX_SYSCALL_NUM,
-    mm::VirtAddr,
+    mm::{translated_byte_buffer, VirtAddr},
     task::{
-        change_program_brk, exit_current_and_run_next, get_current_task_info, get_current_task_mut,
-        suspend_current_and_run_next, TaskStatus, mmap, munmap,
+        change_program_brk, current_user_token, exit_current_and_run_next, get_current_task_info,mmap, munmap, suspend_current_and_run_next, TaskStatus
     },
     timer::{get_time_ms, get_time_us},
 };
@@ -47,10 +49,22 @@ pub fn sys_yield() -> isize {
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
     let us = get_time_us();
-    // 拿到对应的物理内存，直接写
-    let tv: &mut TimeVal = get_current_task_mut(_ts as usize);
-    tv.sec = us / 1_000_000;
-    tv.usec = us % 1_000_000;
+    let token = current_user_token();
+    let time_val = TimeVal {
+        sec: us / 1_000_000,
+        usec: us % 1_000_000,
+    };
+    // 从内存中取出，按页表分为多个buffer
+    let buffers= translated_byte_buffer(token, _ts as *const u8, size_of::<TimeVal>());
+    // 转成指针
+    let mut time_val_p = &time_val as *const _ as *const u8;
+    // copy到对应的内存中
+    for ele in buffers {
+        unsafe {
+            time_val_p.copy_to(ele.as_mut_ptr(), ele.len());
+            time_val_p = time_val_p.add(ele.len());
+        }
+    }
     0
 }
 
@@ -59,11 +73,20 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
 /// HINT: What if [`TaskInfo`] is splitted by two pages ?
 pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
     trace!("kernel: sys_task_info");
-    let task_info = get_current_task_info();
-    let ti: &mut TaskInfo = get_current_task_mut(_ti as usize);
-    ti.status = task_info.0;
-    ti.syscall_times = task_info.1;
-    ti.time = get_time_ms() - task_info.2;
+    let info = get_current_task_info();
+    let task_info = TaskInfo {
+        status : info.0,
+        syscall_times : info.1,
+        time : get_time_ms() - info.2,
+    };
+    let buffer = translated_byte_buffer(current_user_token(), _ti as *const u8, size_of::<TaskInfo>());
+    let mut task_info_p = &task_info as *const _ as *const u8;
+    for ele in buffer {
+        unsafe {
+            task_info_p.copy_to(ele.as_mut_ptr(), ele.len());
+            task_info_p = task_info_p.add(ele.len());
+        }
+    }
     0
 }
 
