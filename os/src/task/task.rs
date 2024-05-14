@@ -1,9 +1,9 @@
 //! Types related to task management
 
 use super::TaskContext;
-use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{
-    kernel_stack_position, MapPermission, MemorySet, PhysAddr, PhysPageNum, VirtAddr,  KERNEL_SPACE
+    kernel_stack_position, MapPermission, MemorySet, PhysAddr, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
 use crate::trap::{trap_handler, TrapContext};
 
@@ -29,6 +29,12 @@ pub struct TaskControlBlock {
 
     /// Program break
     pub program_brk: usize,
+
+    /// record syscall times
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+
+    /// task start ts
+    pub time: usize,
 }
 
 impl TaskControlBlock {
@@ -64,6 +70,8 @@ impl TaskControlBlock {
             base_size: user_sp,
             heap_bottom: user_sp,
             program_brk: user_sp,
+            syscall_times: [0; MAX_SYSCALL_NUM],
+            time: 0,
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
@@ -99,12 +107,23 @@ impl TaskControlBlock {
     }
 
     /// 通过当前任务的内存虚拟地址获得对应的物理内存，并通过指定结构返回
-    pub fn get_mut_by_va<T>(&self, va: VirtAddr) -> &'static mut T{
+    pub fn get_mut_by_va<T>(&self, va: VirtAddr) -> &'static mut T {
         let offset = va.page_offset();
         let ppn = self.memory_set.translate(va.floor()).unwrap().ppn();
-        let pv:PhysAddr = (PhysAddr::from(ppn).0 | offset).into();
+        let pv: PhysAddr = (PhysAddr::from(ppn).0 | offset).into();
         pv.get_mut()
     }
+
+    /// 获取当前任务的TaskInfo
+    pub fn get_task_info(&self) -> (TaskStatus, [u32; MAX_SYSCALL_NUM], usize) {
+        (self.task_status, self.syscall_times, self.time)
+    }
+
+    /// 系统调用计数
+    pub fn inc_syscall_count(&mut self, syscall_id: usize) {
+        self.syscall_times[syscall_id] += 1
+    }
+
 }
 
 #[derive(Copy, Clone, PartialEq)]

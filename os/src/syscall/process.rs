@@ -1,11 +1,8 @@
 //! Process management syscalls
 use crate::{
-    config::MAX_SYSCALL_NUM,
-    task::{
-        change_program_brk, exit_current_and_run_next, get_mut_by_va, suspend_current_and_run_next,
-        TaskStatus,
-    },
-    timer::get_time_us,
+    config::MAX_SYSCALL_NUM, mm::VirtAddr, task::{
+        change_program_brk, exit_current_and_run_next, get_current_task_info, get_current_task_mut, suspend_current_and_run_next, TaskStatus
+    }, timer::{get_time_ms, get_time_us}
 };
 
 #[repr(C)]
@@ -47,7 +44,7 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
     let us = get_time_us();
     // 拿到对应的物理内存，直接写
-    let tv: &mut TimeVal = get_mut_by_va(_ts as usize);
+    let tv: &mut TimeVal = get_current_task_mut(_ts as usize);
     tv.sec = us / 1_000_000;
     tv.usec = us % 1_000_000;
     0
@@ -57,8 +54,13 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TaskInfo`] is splitted by two pages ?
 pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
-    trace!("kernel: sys_task_info NOT IMPLEMENTED YET!");
-    -1
+    trace!("kernel: sys_task_info");
+    let task_info = get_current_task_info();
+    let ti: &mut TaskInfo= get_current_task_mut(_ti as usize);
+    ti.status = task_info.0;
+    ti.syscall_times = task_info.1;
+    ti.time= get_time_ms() - task_info.2;
+    0
 }
 
 // YOUR JOB: Implement mmap.
@@ -70,6 +72,7 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
 // YOUR JOB: Implement munmap.
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
+    // todo unimplemented
     -1
 }
 /// change data segment size
