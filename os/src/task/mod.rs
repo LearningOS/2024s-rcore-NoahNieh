@@ -150,11 +150,25 @@ impl TaskManager {
         inner.tasks[cur].get_task_info()
     }
 
-    /// 
+    /// 系统调用计数
     pub fn inc_current_syscall_count(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let cur = inner.current_task;
         inner.tasks[cur].inc_syscall_count(syscall_id)
+    }
+
+    /// mmap
+    pub fn mmap(&self, start: usize, len: usize, prot: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].mmap(start, len, prot)
+    }
+
+    /// munmap
+    pub fn munmap(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].munmap(start, len)
     }
 
     /// Switch current `Running` task to the task we have found,
@@ -243,4 +257,14 @@ pub fn get_current_task_info() -> (TaskStatus, [u32; MAX_SYSCALL_NUM], usize){
 /// 系统调用计数
 pub fn inc_syscall_count(syscall_id: usize) {
     TASK_MANAGER.inc_current_syscall_count(syscall_id);
+}
+
+/// mmap
+pub fn mmap(start: usize, len: usize, prot: usize) -> isize {
+    TASK_MANAGER.mmap(start, len, prot)
+}
+
+/// munmap
+pub fn munmap(start: usize, len:usize) -> isize {
+    TASK_MANAGER.munmap(start, len)
 }

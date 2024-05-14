@@ -1,8 +1,12 @@
 //! Process management syscalls
 use crate::{
-    config::MAX_SYSCALL_NUM, mm::VirtAddr, task::{
-        change_program_brk, exit_current_and_run_next, get_current_task_info, get_current_task_mut, suspend_current_and_run_next, TaskStatus
-    }, timer::{get_time_ms, get_time_us}
+    config::MAX_SYSCALL_NUM,
+    mm::VirtAddr,
+    task::{
+        change_program_brk, exit_current_and_run_next, get_current_task_info, get_current_task_mut,
+        suspend_current_and_run_next, TaskStatus, mmap, munmap,
+    },
+    timer::{get_time_ms, get_time_us},
 };
 
 #[repr(C)]
@@ -56,24 +60,27 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
 pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
     trace!("kernel: sys_task_info");
     let task_info = get_current_task_info();
-    let ti: &mut TaskInfo= get_current_task_mut(_ti as usize);
+    let ti: &mut TaskInfo = get_current_task_mut(_ti as usize);
     ti.status = task_info.0;
     ti.syscall_times = task_info.1;
-    ti.time= get_time_ms() - task_info.2;
+    ti.time = get_time_ms() - task_info.2;
     0
 }
 
 // YOUR JOB: Implement mmap.
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
-    -1
+    trace!("kernel: sys_mmap ");
+    let va = VirtAddr::from(_start);
+    if !va.aligned() || (_port & !0x7) != 0 || (_port & 0x7) == 0 {
+        return -1;
+    }
+    mmap(_start, _len, _port)
 }
 
 // YOUR JOB: Implement munmap.
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
-    // todo unimplemented
-    -1
+    trace!("kernel: sys_munmap ");
+    munmap(_start, _len)
 }
 /// change data segment size
 pub fn sys_sbrk(size: i32) -> isize {

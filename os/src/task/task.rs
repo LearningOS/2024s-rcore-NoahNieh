@@ -124,6 +124,40 @@ impl TaskControlBlock {
         self.syscall_times[syscall_id] += 1
     }
 
+    /// mmap
+    pub fn mmap(&mut self, start: usize, len: usize, prot: usize) -> isize {
+        let va = VirtAddr::from(start);
+        let end_va = (start + len).into();
+        if !va.aligned() || (prot & !0x7) != 0 || (prot & 0x7) == 0 {
+            return -1;
+        }
+        let bits = ((prot & 0x7) as u8 | (1 << 3)) << 1;
+        let map_permission= MapPermission::from_bits(bits).unwrap();
+        if self.memory_set.mmap(va.into(), end_va,  map_permission) {
+            0
+        } else {
+            debug!("task.rs: mmap failed");
+            -1
+        }
+    }
+
+    /// munmap
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        let va = VirtAddr::from(start);
+        let end_va = VirtAddr::from(start + len);
+        if !va.aligned() {
+            debug!("task.rs: munmap failed: not aligned");
+            return -1;
+        }
+        if self.memory_set.munmap(va.floor(), end_va.ceil()) {
+            0
+        } else {
+            debug!("task.rs: munmap failed");
+            -1
+        }
+    }
+
+
 }
 
 #[derive(Copy, Clone, PartialEq)]

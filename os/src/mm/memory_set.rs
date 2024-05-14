@@ -262,6 +262,39 @@ impl MemorySet {
             false
         }
     }
+    
+    /// mmap a new area
+    pub fn mmap(&mut self, start: VirtAddr, end: VirtAddr, map_perm: MapPermission) -> bool {
+        if self.areas.iter().any(|area| area.vpn_range.is_overlap(&VPNRange::new(start.floor(), end.ceil()))) {
+            debug!("failed on checking overlap");
+            return false;
+        }
+        let mut new_area = MapArea::new(start, end, MapType::Framed, map_perm);
+        debug!("alloc start:{:?}, end:{:?}", new_area.vpn_range.get_start(), new_area.vpn_range.get_end());
+        new_area.map(&mut self.page_table);
+        self.areas.push(new_area);
+        true
+    }
+
+    /// munmap an area
+    pub fn munmap(&mut self, start: VirtPageNum, end: VirtPageNum) -> bool {
+        debug!("dealloc start:{:?} end:{:?}", start, end);
+        let mut index = None;
+        for (i, area) in self.areas.iter().enumerate() {
+            if start.0 == area.vpn_range.get_start().0 && end.0 == area.vpn_range.get_end().0 {
+                index = Some(i);
+                break;
+            }
+        }
+        if let Some(index) = index {
+            self.areas[index].unmap(&mut self.page_table);
+            self.areas.remove(index);
+            true
+        } else {
+            debug!("not found");
+            false
+        }
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {
