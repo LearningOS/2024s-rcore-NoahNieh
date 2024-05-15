@@ -6,11 +6,12 @@ use alloc::sync::Arc;
 use crate::{
     config::MAX_SYSCALL_NUM,
     loader::get_app_data_by_name,
-    mm::{translated_byte_buffer, translated_refmut, translated_str},
+    mm::{translated_byte_buffer, translated_refmut, translated_str, MapPermission, VirtAddr},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus,
-    }, timer::get_time_us,
+    },
+    timer::get_time_us,
 };
 
 #[repr(C)]
@@ -81,7 +82,11 @@ pub fn sys_exec(path: *const u8) -> isize {
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
-    trace!("kernel::pid[{}] sys_waitpid [{}]", current_task().unwrap().pid.0, pid);
+    trace!(
+        "kernel::pid[{}] sys_waitpid [{}]",
+        current_task().unwrap().pid.0,
+        pid
+    );
     let task = current_task().unwrap();
     // find a child process
 
@@ -161,7 +166,25 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
         "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if !VirtAddr::from(_start).aligned() || _port & 0x7 == 0 || _port & !0x7 != 0 {
+        return -1
+    }
+
+    if current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .have_framed_arena(_start.into(), (_start + _len).into()) {
+            return -1
+        }
+
+    let permission = MapPermission::from_bits((_port << 1) as u8).unwrap() | MapPermission::U;
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .insert_framed_area(_start.into(), (_start + _len).into(), permission);
+    0
 }
 
 /// YOUR JOB: Implement munmap.
@@ -206,7 +229,6 @@ pub fn sys_spawn(_path: *const u8) -> isize {
     } else {
         -1
     }
-
 }
 
 // YOUR JOB: Set task priority.

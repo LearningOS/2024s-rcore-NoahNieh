@@ -48,6 +48,19 @@ impl MemorySet {
     pub fn token(&self) -> usize {
         self.page_table.token()
     }
+
+    /// have_framed_arena
+    pub fn have_framed_arena(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        debug!("start_va:{:?}, end_va: {:?}", start_va, end_va);
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        self.areas
+            .iter()
+            .any(| area| 
+            start_vpn <= area.vpn_range.get_end() && 
+            end_vpn >= area.vpn_range.get_start()
+        )
+    }
     /// Assume that no conflicts.
     pub fn insert_framed_area(
         &mut self,
