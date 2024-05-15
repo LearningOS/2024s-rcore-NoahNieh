@@ -11,7 +11,8 @@ use crate::{
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus,
-    }, timer::get_time_us,
+    },
+    timer::get_time_us,
 };
 
 #[repr(C)]
@@ -161,7 +162,25 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
         "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if !VirtAddr::from(_start).aligned() || _port & 0x7 == 0 || _port & !0x7 != 0 {
+        return -1
+    }
+
+    if current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .have_framed_arena(_start.into(), (_start + _len).into()) {
+            return -1
+        }
+
+    let permission = MapPermission::from_bits((_port << 1) as u8).unwrap() | MapPermission::U;
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .insert_framed_area(_start.into(), (_start + _len).into(), permission);
+    0
 }
 
 /// YOUR JOB: Implement munmap.
@@ -206,7 +225,6 @@ pub fn sys_spawn(_path: *const u8) -> isize {
     } else {
         -1
     }
-
 }
 
 // YOUR JOB: Set task priority.
