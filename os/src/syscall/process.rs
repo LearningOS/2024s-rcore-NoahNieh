@@ -1,15 +1,17 @@
 //! Process management syscalls
 //!
+use core::mem::size_of;
+
 use alloc::sync::Arc;
 
 use crate::{
     config::MAX_SYSCALL_NUM,
     fs::{open_file, OpenFlags},
-    mm::{translated_refmut, translated_str},
+    mm::{translated_byte_buffer, translated_refmut, translated_str},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus,
-    },
+    }, timer::get_time_us,
 };
 
 #[repr(C)]
@@ -122,7 +124,24 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
         "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let us = get_time_us();
+    let token = current_user_token();
+    let time_val = TimeVal {
+        sec: us / 1_000_000,
+        usec: us % 1_000_000,
+    };
+    // 从内存中取出，按页表分为多个buffer
+    let buffers = translated_byte_buffer(token, _ts as *const u8, size_of::<TimeVal>());
+    // 转成指针
+    let mut time_val_p = &time_val as *const _ as *const u8;
+    // copy到对应的内存中
+    for ele in buffers {
+        unsafe {
+            time_val_p.copy_to(ele.as_mut_ptr(), ele.len());
+            time_val_p = time_val_p.add(ele.len());
+        }
+    }
+    0
 }
 
 /// YOUR JOB: Finish sys_task_info to pass testcases
