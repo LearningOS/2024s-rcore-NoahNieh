@@ -153,12 +153,13 @@ pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
         "kernel:pid[{}] sys_task_info NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    let binding = current_task().unwrap();
-    let inner_tcb = binding.inner_exclusive_access();
+    let status = current_task().unwrap().inner_exclusive_access().task_status;
+    let syscall_times = current_task().unwrap().inner_exclusive_access().syscall_times;
+    let time= get_time_ms() - current_task().unwrap().inner_exclusive_access().start_time;
     let task_info = TaskInfo {
-        status : inner_tcb.task_status,
-        syscall_times : inner_tcb.syscall_times,
-        time : get_time_ms() - inner_tcb.start_time,
+        status,
+        syscall_times,
+        time,
     };
     let mut task_info_p = &task_info as *const _ as *const u8;
     let buffer = translated_byte_buffer(current_user_token(), _ti as *const u8, size_of::<TaskInfo>());
