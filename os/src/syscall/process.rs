@@ -171,7 +171,23 @@ pub fn sys_spawn(_path: *const u8) -> isize {
         "kernel:pid[{}] sys_spawn NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+
+    let token = current_user_token();
+    let path = translated_str(token, _path);
+    if let Some(data) = get_app_data_by_name(path.as_str()) {
+        let cur_task = current_task().unwrap();
+        let child_task = cur_task.spawn(data);
+        let child_pid = child_task.pid.0;
+        let trap_cx = child_task.inner_exclusive_access().get_trap_cx();
+        // a0 = 0;
+        trap_cx.x[10] = 0;
+        add_task(child_task);
+        // 返回pid给父进程
+        child_pid as isize
+    } else {
+        -1
+    }
+
 }
 
 // YOUR JOB: Set task priority.
