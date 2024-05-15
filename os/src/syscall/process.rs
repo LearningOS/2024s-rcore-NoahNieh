@@ -12,7 +12,7 @@ use crate::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus,
     },
-    timer::get_time_us,
+    timer::{get_time_ms, get_time_us},
 };
 
 #[repr(C)]
@@ -153,7 +153,22 @@ pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
         "kernel:pid[{}] sys_task_info NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let binding = current_task().unwrap();
+    let inner_tcb = binding.inner_exclusive_access();
+    let task_info = TaskInfo {
+        status : inner_tcb.task_status,
+        syscall_times : inner_tcb.syscall_times,
+        time : get_time_ms() - inner_tcb.start_time,
+    };
+    let mut task_info_p = &task_info as *const _ as *const u8;
+    let buffer = translated_byte_buffer(current_user_token(), _ti as *const u8, size_of::<TaskInfo>());
+    for ele in buffer {
+        unsafe {
+            task_info_p.copy_to(ele.as_mut_ptr(), ele.len());
+            task_info_p = task_info_p.add(ele.len());
+        }
+    }
+    0
 }
 
 /// YOUR JOB: Implement mmap.
@@ -253,5 +268,8 @@ pub fn sys_set_priority(_prio: isize) -> isize {
         "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if _prio <= 1 {
+        return -1
+    }
+    _prio
 }
