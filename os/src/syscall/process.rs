@@ -163,16 +163,17 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
         current_task().unwrap().pid.0
     );
     if !VirtAddr::from(_start).aligned() || _port & 0x7 == 0 || _port & !0x7 != 0 {
-        return -1
+        return -1;
     }
 
     if current_task()
         .unwrap()
         .inner_exclusive_access()
         .memory_set
-        .have_framed_arena(_start.into(), (_start + _len).into()) {
-            return -1
-        }
+        .is_overlap(_start.into(), (_start + _len).into())
+    {
+        return -1;
+    }
 
     let permission = MapPermission::from_bits((_port << 1) as u8).unwrap() | MapPermission::U;
     current_task()
@@ -189,7 +190,26 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
         "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+
+    if !VirtAddr::from(_start).aligned() {
+        return -1
+    }
+
+    if !current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .have_framed(_start.into(), (_start + _len).into())
+    {
+        return -1;
+    }
+
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .remove_area_with_start_vpn(VirtAddr::from(_start).floor());
+    0
 }
 
 /// change data segment size
