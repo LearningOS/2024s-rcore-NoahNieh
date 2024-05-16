@@ -7,7 +7,7 @@ use alloc::sync::Arc;
 use crate::{
     config::MAX_SYSCALL_NUM,
     fs::{open_file, OpenFlags},
-    mm::{translated_byte_buffer, translated_refmut, translated_str},
+    mm::{translated_byte_buffer, translated_refmut, translated_str, MapPermission, VirtAddr},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus,
@@ -248,9 +248,11 @@ pub fn sys_spawn(_path: *const u8) -> isize {
 
     let token = current_user_token();
     let path = translated_str(token, _path);
-    if let Some(data) = get_app_data_by_name(path.as_str()) {
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
+        // task.exec(all_data.as_slice());
         let cur_task = current_task().unwrap();
-        let child_task = cur_task.spawn(data);
+        let child_task = cur_task.spawn(all_data.as_slice());
         let child_pid = child_task.pid.0;
         let trap_cx = child_task.inner_exclusive_access().get_trap_cx();
         // a0 = 0;
