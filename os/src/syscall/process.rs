@@ -272,5 +272,8 @@ pub fn sys_set_priority(_prio: isize) -> isize {
     if _prio <= 1 {
         return -1
     }
+    let cur_task = current_task().unwrap();
+    let mut inner = cur_task.inner_exclusive_access();
+    inner.priority = _prio;
     _prio
 }
