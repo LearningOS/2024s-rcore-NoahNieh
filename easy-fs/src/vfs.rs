@@ -5,7 +5,6 @@ use super::{
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use log::debug;
 use spin::{Mutex, MutexGuard};
 /// Virtual filesystem layer over easy-fs
 pub struct Inode {
@@ -244,7 +243,6 @@ impl Inode {
                     );
                     inode_id
                 });
-                debug!("inode_id: {}", inode_id);
                 fs.get_disk_inode_pos(inode_id)
             };
             let inode = Arc::new(Self::new(
