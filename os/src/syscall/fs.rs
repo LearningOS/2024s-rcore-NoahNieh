@@ -1,7 +1,7 @@
 //! File and filesystem-related syscalls
 use core::mem::size_of;
 
-use crate::fs::{open_file, OpenFlags, Stat};
+use crate::fs::{link, unlink, open_file, OpenFlags, Stat};
 use crate::mm::{translated_byte_buffer, translated_str, UserBuffer};
 use crate::task::{current_task, current_user_token};
 
@@ -78,10 +78,7 @@ pub fn sys_close(fd: usize) -> isize {
 }
 
 pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_fstat NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
+    trace!("kernel:pid[{}] sys_fstat ", current_task().unwrap().pid.0);
     let stat = {
         let task = current_task().unwrap();
         let inner = task.inner_exclusive_access();
@@ -91,12 +88,9 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
         })
     };
     if let Some(stat) = stat {
-        let buffer = translated_byte_buffer(
-            current_user_token(),
-            _st as *const u8,
-            size_of::<Stat>(),
-        );
-        let mut stat_p = &stat as *const _ as *const u8; 
+        let buffer =
+            translated_byte_buffer(current_user_token(), _st as *const u8, size_of::<Stat>());
+        let mut stat_p = &stat as *const _ as *const u8;
         for ele in buffer {
             unsafe {
                 stat_p.copy_to(ele.as_mut_ptr(), ele.len());
@@ -104,8 +98,7 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
             }
         }
         0
-    }
-    else {
+    } else {
         -1
     }
 }
@@ -113,17 +106,35 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
 /// YOUR JOB: Implement linkat.
 pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_linkat ",
         current_task().unwrap().pid.0
     );
-    -1
+    let (old_name, new_name) = {
+        let token = current_user_token();
+        (
+            translated_str(token, _old_name),
+            translated_str(token, _new_name),
+        )
+    };
+    if link(&old_name, &new_name).is_some() {
+        0
+    } else {
+        -1
+    }
 }
 
-/// YOUR JOB: Implement unlinkat.
 pub fn sys_unlinkat(_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_unlinkat ",
         current_task().unwrap().pid.0
     );
-    -1
+    let name = {
+        let token = current_user_token();
+        translated_str(token, _name)
+    };
+    if unlink(&name).is_ok() {
+        0
+    } else {
+        -1
+    }
 }
