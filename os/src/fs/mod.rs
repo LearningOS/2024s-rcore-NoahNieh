@@ -15,6 +15,9 @@ pub trait File: Send + Sync {
     fn read(&self, buf: UserBuffer) -> usize;
     /// write to the file from buf, return the number of bytes written
     fn write(&self, buf: UserBuffer) -> usize;
+
+    /// get fd status
+    fn stat(&self) -> Stat;
 }
 
 /// The stat of a inode
@@ -31,6 +34,18 @@ pub struct Stat {
     pub nlink: u32,
     /// unused pad
     pad: [u64; 7],
+}
+
+impl Default for Stat {
+    fn default() -> Self {
+        Self {
+            dev: 0,
+            ino: Default::default(),
+            mode: StatMode::NULL,
+            nlink: Default::default(),
+            pad: Default::default(),
+        }
+    }
 }
 
 bitflags! {

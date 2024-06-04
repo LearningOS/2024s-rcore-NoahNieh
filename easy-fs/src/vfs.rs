@@ -155,6 +155,33 @@ impl Inode {
             v
         })
     }
+
+    /// Get hard link num
+    pub fn get_nlink(&self) -> u32 {
+        self.read_disk_inode(|diskInode| {
+            diskInode.nlink
+        })
+    }
+
+    /// is dir
+    pub fn is_dir(&self) -> bool {
+        self.read_disk_inode(|disk_inode| {
+            disk_inode.is_dir()
+        })
+    }
+
+    /// is file
+    pub fn is_file(&self) -> bool {
+        self.read_disk_inode(|disk_inode| {
+            disk_inode.is_file()
+        })
+    }
+
+    /// get ino
+    pub fn get_ino(&self) -> u64{
+        self.fs.lock().get_inode_id(self.block_id, self.block_offset)
+    }
+
     /// Read data from current inode
     pub fn read_at(&self, offset: usize, buf: &mut [u8]) -> usize {
         let _fs = self.fs.lock();
